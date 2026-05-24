@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AppLogoIcon, ChatIcon, LockIcon, StarIcon } from "./Icons";
 
 const LANGUAGES = [
   {code:"en",label:"English"},{code:"hi",label:"हिन्दी"},{code:"ta",label:"தமிழ்"},
@@ -16,7 +17,7 @@ export default function Sidebar({ sessions, currentSession, onNewChat, onLoadSes
       {/* Logo */}
       <div className="px-4 pt-5 pb-4 border-b border-gray-800">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-2xl">🧠</span>
+          <AppLogoIcon className="w-6 h-6 text-purple-400" />
           <div>
             <p className="font-bold text-white text-sm">LocalMind</p>
             <p className="text-xs text-gray-500">v2.0 · Offline AI</p>
@@ -62,7 +63,10 @@ export default function Sidebar({ sessions, currentSession, onNewChat, onLoadSes
             <button onClick={()=>onLoadSession(s.id)}
               className="flex-1 text-left text-xs px-3 py-2 truncate text-gray-400 group-hover:text-gray-200">
               <span className={currentSession === s.id ? "text-white" : ""}>
-                💬 {s.title || "New Chat"}
+                <span className="inline-flex items-center gap-1.5">
+                  <ChatIcon className="w-3.5 h-3.5 text-gray-500" />
+                  <span>{s.title || "New Chat"}</span>
+                </span>
               </span>
               {s.message_count > 0 && (
                 <span className="ml-1 text-gray-600">{s.message_count}</span>
@@ -78,10 +82,14 @@ export default function Sidebar({ sessions, currentSession, onNewChat, onLoadSes
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-gray-800">
-        <p className="text-xs text-gray-600">🔒 100% local · no cloud · MIT</p>
+        <p className="text-xs text-gray-600 inline-flex items-center gap-1">
+          <LockIcon className="w-3.5 h-3.5" />
+          <span>100% local · no cloud · MIT</span>
+        </p>
         <a href="https://github.com/yourusername/localmind" target="_blank" rel="noreferrer"
-          className="text-xs text-purple-500 hover:text-purple-400 transition">
-          ⭐ Star on GitHub
+          className="text-xs text-purple-500 hover:text-purple-400 transition inline-flex items-center gap-1">
+          <StarIcon className="w-3.5 h-3.5" />
+          <span>Star on GitHub</span>
         </a>
       </div>
     </div>
