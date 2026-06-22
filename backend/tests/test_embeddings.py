@@ -218,7 +218,7 @@ def test_rag_service_indexing_and_retrieval(mock_get_provider, mock_chroma_clien
         
         assert "Hello world." in context
         assert "This is a test document." in context
-        assert "temp_file.txt" in sources
+        assert any(s["source"] == "temp_file.txt" for s in sources)
 
     finally:
         if os.path.exists(temp_file_path):
