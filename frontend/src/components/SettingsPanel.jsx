@@ -13,7 +13,7 @@ const LANGUAGES = [
 
 export default function SettingsPanel({ settings, onSave, onClose }) {
   const [form, setForm] = useState({
-    default_model:      settings?.default_model      || "llama3",
+default_model:      settings?.default_model      || "llama3",
     default_language:   settings?.default_language   || "en",
     temperature:        settings?.temperature        ?? 0.7,
     max_history_turns:  settings?.max_history_turns  || 10,
@@ -22,6 +22,7 @@ export default function SettingsPanel({ settings, onSave, onClose }) {
     theme:              settings?.theme              || "dark",
     embedding_provider: settings?.embedding_provider || "sentence-transformers",
     embedding_model:    settings?.embedding_model    || "all-MiniLM-L6-v2",
+    minimal_mode:       settings?.minimal_mode       ?? false,
   });
 
   const [errors, setErrors] = useState({});
@@ -120,18 +121,34 @@ export default function SettingsPanel({ settings, onSave, onClose }) {
           <select value={form.theme} onChange={e => set("theme", e.target.value)} className={`sel ${errors.theme ? "border-red-500" : ""}`}>
             <option value="dark">Dark</option>
             <option value="light">Light</option>
+            <option value="high-contrast">High Contrast</option>
+            <option value="sepia">Sepia (Warm)</option>
+            <option value="comfort">Comfort (Large Text)</option>
           </select>
         </Field>
-        <Field label="Embedding Provider">
+<Field label="Embedding Provider">
           <select value={form.embedding_provider} onChange={e=>set("embedding_provider",e.target.value)} className="sel">
             <option value="sentence-transformers">Sentence Transformers (Local)</option>
             <option value="ollama">Ollama (Local API)</option>
           </select>
         </Field>
+
         <Field label="Embedding Model">
           <input type="text" value={form.embedding_model}
             onChange={e=>set("embedding_model",e.target.value)}
             className="sel" />
+        </Field>
+
+        <Field label="Minimal Mode">
+          <label className="flex items-center gap-2 text-gray-300">
+            <input
+              type="checkbox"
+              checked={form.minimal_mode}
+              onChange={e => set("minimal_mode", e.target.checked)}
+            />
+            Low-bandwidth mode
+          </label>
+        </Field>
         </Field>
       </div>
 

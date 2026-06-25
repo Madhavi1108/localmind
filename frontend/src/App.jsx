@@ -8,6 +8,7 @@ import SettingsPanel from "./components/SettingsPanel";
 import PromptRegistryPage from "./components/PromptRegistryPage";
 import StatusBar from "./components/StatusBar";
 import * as api from "./utils/api";
+import SharedView from "./components/SharedView";
 import { getSessionColor, setSessionColor } from "./utils/colorHelper";
 
 export default function App() {
@@ -24,8 +25,19 @@ export default function App() {
   const [language,   setLanguage]   = useState("en");
   const [ollamaOk,   setOllamaOk]   = useState(null);
   const [settings,   setSettings]   = useState({});
+  const minimalMode = settings?.minimal_mode === true;
   const [useStream,  setUseStream]  = useState(true);
 
+  // Check if the current browser path is for a shared snapshot link
+  const path = window.location.pathname;
+  const isSharedPath = path.startsWith("/shared/");
+
+  useEffect(() => {
+    // Only fetch layout configurations if the user isn't on the public read-only page
+    if (!isSharedPath) {
+      bootstrap();
+    }
+  }, [isSharedPath]);
   // --- FEATURE REFERENCE: TRACK ACTIVE REQUEST ABORT SIGNAL ---
   const abortControllerRef = useRef(null);
 
@@ -43,8 +55,14 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Apply the selected theme preset globally (contrast / readability).
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", settings.theme || "dark");
+  }, [settings.theme]);
+
   // Poll Ollama status and refresh models on recovery
   useEffect(() => {
+    if (minimalMode) return;
     const interval = setInterval(async () => {
       try {
         const stRes = await api.getOllamaStatus();
@@ -60,7 +78,7 @@ export default function App() {
       }
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [minimalMode]);
 
   async function bootstrap() {
     try {
@@ -245,6 +263,10 @@ export default function App() {
     setMessages([]);
   }
 
+  // ─── Routing Interceptor ───
+  if (isSharedPath) {
+    return <SharedView />;
+  }
   const handleLanguageChange = useCallback(async (newLang) => {
     setLanguage(newLang);
     if (sessionId) {
@@ -299,6 +321,7 @@ export default function App() {
           documents={documents}
           onUploaded={() => refreshDocuments(sessionId)}
           onClose={() => setPanel(null)}
+          minimalMode={minimalMode}
         />
         {panel === "plugins" && (
           <PluginsPanel sessionId={sessionId} onClose={() => setPanel(null)} />
@@ -321,6 +344,7 @@ export default function App() {
             onDeleteMessage={handleDeleteMessage}
             onStop={stopGeneration}
             sessionId={sessionId}
+            minimalMode={minimalMode}
           />
         )}
       </div>

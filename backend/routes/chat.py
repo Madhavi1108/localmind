@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from services import db_service, ollama_service
 
 logger = logging.getLogger(__name__)
+router = APIRouter()
 
 # Define the absolute or relative path where export files are saved on the server
 EXPORT_DIR = Path(__file__).parent.parent / "localmind_exports"
@@ -25,7 +26,6 @@ def _get_memory_usage():
     mem = psutil.virtual_memory()
     return round(mem.used / (1024 ** 3), 1), round(mem.total / (1024 ** 3), 1)
 
-router = APIRouter()
 
 def _retrieve_context(*args, **kwargs):
     from services import rag_service as rag_service_module
@@ -33,6 +33,12 @@ def _retrieve_context(*args, **kwargs):
 
 
 rag_service = SimpleNamespace(retrieve_context=_retrieve_context)
+
+# Global fallback message string
+OLLAMA_OFFLINE_FALLBACK = (
+    "⚠️ I'm currently unable to process your request because the local AI engine (Ollama) is offline. "
+    "Please open your terminal and run `ollama serve` to start it back up!"
+)
 
 
 # Global registry for active streams
@@ -223,8 +229,12 @@ async def chat(req: ChatRequest):
         req.session_id, req.model, req.language, req.use_documents, len(req.message or ""),
     )
     if not await ollama_service.is_ollama_running():
-        logger.warning("chat_rejected route=/chat session=%s reason=ollama_down", req.session_id)
-        raise HTTPException(503, "Ollama not running. Run: `ollama serve`")
+        # Save interaction to database to preserve conversation state continuity
+        db_service.create_session(req.session_id, model=req.model)
+        db_service.save_message(req.session_id, "user", req.message)
+        db_service.save_message(req.session_id, "assistant", OLLAMA_OFFLINE_FALLBACK)
+        
+        return ChatResponse(reply=OLLAMA_OFFLINE_FALLBACK, session_id=req.session_id, model=req.model, sources=[])
 
     db_service.create_session(req.session_id, model=req.model, language=req.language)
     history = db_service.get_history(req.session_id)
@@ -266,8 +276,18 @@ async def chat_stream(req: ChatRequest):
         req.resume_offset or 0, len(req.message or ""),
     )
     if not await ollama_service.is_ollama_running():
-        logger.warning("chat_rejected route=/chat/stream session=%s reason=ollama_down", req.session_id)
-        raise HTTPException(503, "Ollama not running. Run: `ollama serve`")
+        # Save conversation history tracking rows
+        db_service.create_session(req.session_id, model=req.model)
+        db_service.save_message(req.session_id, "user", req.message)
+        db_service.save_message(req.session_id, "assistant", OLLAMA_OFFLINE_FALLBACK)
+
+        # Create a generator that simulates the stream over SSE tokens
+        async def fallback_event_stream():
+            yield f"data: {json.dumps({'token': OLLAMA_OFFLINE_FALLBACK})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'sources': []})}\n\n"
+
+        return StreamingResponse(fallback_event_stream(), media_type="text/event-stream")
+        
     
     start_time = time.perf_counter()
 
@@ -382,3 +402,40 @@ async def api_delete_session(session_id: str):
         logger.error("Failed to delete session %s: %s", session_id, str(e))
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {str(e)}")
 
+
+
+# ─── Shareable Read-Only Session Links (Issue #270) ───────────
+
+@router.post("/share/{session_id}")
+async def api_create_share_link(session_id: str):
+    """
+    Generates a secure point-in-time public snapshot 
+    for a given local conversation session thread.
+    """
+    try:
+        share_id = db_service.create_shared_session(session_id)
+        return {
+            "success": True,
+            "share_id": share_id,
+            "share_url": f"/shared/{share_id}"  # The relative frontend link path
+        }
+    except ValueError as val_err:
+        raise HTTPException(status_code=404, detail=str(val_err))
+    except Exception as e:
+        logger.error("Failed to generate shared snapshot: %s", str(e))
+        raise HTTPException(status_code=500, detail="Internal server error processing share link request")
+
+
+@router.get("/share/{share_id}")
+async def api_get_shared_snapshot(share_id: str):
+    """
+    Publicly fetches a shared snapshot record to render in read-only view containers.
+    """
+    snapshot = db_service.get_shared_session(share_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="The requested shared chat conversation link does not exist or has expired")
+    
+    return {
+        "success": True,
+        "snapshot": snapshot
+    }
