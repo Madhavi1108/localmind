@@ -121,6 +121,9 @@ default_model:      settings?.default_model      || "llama3",
           <select value={form.theme} onChange={e => set("theme", e.target.value)} className={`sel ${errors.theme ? "border-red-500" : ""}`}>
             <option value="dark">Dark</option>
             <option value="light">Light</option>
+            <option value="high-contrast">High Contrast</option>
+            <option value="sepia">Sepia (Warm)</option>
+            <option value="comfort">Comfort (Large Text)</option>
           </select>
         </Field>
 <Field label="Embedding Provider">
