@@ -149,7 +149,6 @@ default_model:      settings?.default_model      || "llama3",
             Low-bandwidth mode
           </label>
         </Field>
-        </Field>
       </div>
 
       <div className="flex gap-2 mt-4">
